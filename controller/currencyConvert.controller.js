@@ -547,6 +547,13 @@ const enquiry = async (req, res) => {
       email,
     } = req.body;
 
+    // Input validation
+    if (!customerName || !originCountry || !weight || !destinationCountry || !phone || !email) {
+      return res.status(400).send({ message: "All fields are required." });
+    }
+
+    // Additional validation can be added here (e.g., email format, phone format, etc.)
+
     const mailOptions = {
       from: "vachhanijeel2001@gmail.com",
       to: "jeel.techeniac@gmail.com",
@@ -571,11 +578,17 @@ const enquiry = async (req, res) => {
     res.status(200).send({ message: "Enquiry sent successfully!" });
   } catch (err) {
     console.error("Error sending email:", err);
-    res
-      .status(500)
-      .send({ message: "Error sending enquiry. Please try again later." });
+
+    // Handle specific error types if needed
+    if (err instanceof SomeSpecificErrorType) {
+      return res.status(400).send({ message: "Specific error message." });
+    }
+
+    // Default to 500 for server errors
+    res.status(500).send({ message: "Error sending enquiry. Please try again later." });
   }
 };
+
 module.exports = {
   convertCurrency,
   ShippingCalculate,
