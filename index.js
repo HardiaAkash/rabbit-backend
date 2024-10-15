@@ -37,7 +37,7 @@ app.use(cors(corsOptions));
 // v1 api routes
 app.use("/api", routes);
 
-app.listen(4000, () => {
+app.listen(3000, () => {
   console.log("Server Listening to port 3000");
 });
 
