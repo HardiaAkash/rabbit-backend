@@ -464,10 +464,12 @@ const shippingRates = [
 ];
 
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtpout.secureserver.net", // GoDaddy's SMTP host
+  port: 465, // SSL port
+  secure: true, // Use true for 465, false for 587
   auth: {
-    user: "enquiry@rabbitspeed.in",
-    pass: "Rabbitspeed123!",
+    user: "enquiry@rabbitspeed.in", // Your GoDaddy email address
+    pass: "Rabbitspeed123!", // Your GoDaddy email password
   },
 });
 
@@ -483,58 +485,107 @@ const convertCurrency = async (req, res) => {
   try {
     const { baseCurrency, convertCurrency, amount } = req.body;
 
+    // Validate input
+    if (!baseCurrency || !convertCurrency || !amount) {
+      return res
+        .status(400)
+        .json({ error: "baseCurrency, convertCurrency, and amount are required." });
+    }
+
+    // Check if amount is a valid number
+    if (isNaN(amount) || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount. Please provide a valid number greater than 0." });
+    }
+
+    // Make the API call to fetch conversion rates
     const response = await axios.get(
       `https://api.freecurrencyapi.com/v1/latest?apikey=fca_live_VtwKKyZoP9UEk55HfPfmE51xSMtJdf0BeVHzIQwb&currencies=${convertCurrency}&base_currency=${baseCurrency}`
     );
 
     const data = response.data;
-    console.log(data.data[convertCurrency] * amount);
 
-    return res.json({
-      totalAmount: (data.data[convertCurrency] * amount).toFixed(2),
-      baseAmount: data.data[convertCurrency].toFixed(2),
+    // Check if conversion data exists
+    if (!data.data[convertCurrency]) {
+      return res.status(404).json({ error: `Conversion rate for ${convertCurrency} not found.` });
+    }
+
+    // Calculate the converted amount
+    const totalAmount = (data.data[convertCurrency] * amount).toFixed(2);
+    const baseAmount = data.data[convertCurrency].toFixed(2);
+
+    // Return successful response with status 200
+    return res.status(200).json({
+      totalAmount,
+      baseAmount,
+      message: `Conversion from ${baseCurrency} to ${convertCurrency} was successful.`,
     });
+
   } catch (err) {
-    return res.status(500).send({ error: "Failed to Convert Currency" });
+    // Handle different error cases
+    if (err.response && err.response.status === 401) {
+      return res.status(401).json({ error: "Invalid API key or unauthorized access." });
+    } else if (err.response && err.response.status === 400) {
+      return res.status(400).json({ error: "Bad request to currency conversion API." });
+    } else if (err.code === 'ENOTFOUND') {
+      return res.status(503).json({ error: "Currency conversion service is currently unavailable." });
+    } else {
+      console.error(err); // Log the full error for debugging
+      return res.status(500).json({ error: "Internal Server Error: Failed to Convert Currency" });
+    }
   }
 };
 const ShippingCalculate = async (req, res) => {
-  const { weight, country } = req.body;
+  try {
+    const { weight, country } = req.body;
 
-  if (!weight || !country) {
-    return res.status(400).json({ error: "Weight and country are required." });
+    // Validate input
+    if (!weight || !country) {
+      return res.status(400).json({ error: "Weight and country are required." });
+    }
+
+    // Find the rate based on the closest weight
+    const rate = findClosestWeight(weight);
+
+    if (!rate) {
+      return res.status(404).json({ error: "No rates found for the given weight." });
+    }
+
+    const countryUpper = country.toUpperCase().replace(" ", "_");
+    const costPerKg = rate[countryUpper];
+
+    // Validate rate for the country
+    if (costPerKg === undefined) {
+      return res.status(400).json({ error: `No rates found for country: ${country}` });
+    }
+
+    let cost;
+
+    // Calculate cost based on weight range
+    if (weight > 30) {
+      const baseRate = shippingRates.find((r) => r.weight === "30-50");
+      if (!baseRate) {
+        return res.status(404).json({ error: "No rates available for the 30-50kg range." });
+      }
+
+      const perKgRate = baseRate[countryUpper];
+      const additionalWeight = weight - 30;
+      cost = 21900 + additionalWeight * perKgRate;
+    } else if (typeof rate.weight === "string" && rate.weight === "30-50") {
+      // Handle special case where weight matches exactly
+      const extraWeight = weight - 30;
+      cost = 21900 + extraWeight * costPerKg;
+    } else {
+      cost = costPerKg;
+    }
+
+    // Return the calculated cost
+    return res.status(200).json({ weight, country, cost });
+  } catch (error) {
+    console.error("Error calculating shipping cost:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
   }
-
-  // Find the rate based on the closest weight
-  const rate = findClosestWeight(weight);
-
-  const countryUpper = country.toUpperCase().replace(" ", "_");
-  const costPerKg = rate[countryUpper];
-
-  if (costPerKg === undefined) {
-    return res
-      .status(400)
-      .json({ error: `No rates found for country: ${country}` });
-  }
-
-  let cost;
-
-  if (weight > 30) {
-    // If weight is greater than 30 kg, apply the rate from the "30-50" range
-    const baseRate = shippingRates.find((r) => r.weight === "30-50");
-    const perKgRate = baseRate[countryUpper];
-    const additionalWeight = weight - 30;
-    cost = 21900 + additionalWeight * perKgRate;
-  } else if (typeof rate.weight === "string") {
-    // Special handling for the 30-50kg range in case weight exactly matches
-    const extraWeight = weight - 30;
-    cost = 21900 + extraWeight * costPerKg;
-  } else {
-    cost = costPerKg;
-  }
-
-  return res.json({ weight, country, cost });
 };
+
 
 const enquiry = async (req, res) => {
   try {
@@ -555,8 +606,8 @@ const enquiry = async (req, res) => {
     // Additional validation can be added here (e.g., email format, phone format, etc.)
 
     const mailOptions = {
-      from: "vachhanijeel2001@gmail.com",
-      to: "jeel.techeniac@gmail.com",
+      from: "enquiry@rabbitspeed.in",
+      to: "enquiry@rabbitspeed.in",
       subject: "New Shipping Enquiry",
       html: `
         <p>You have a new shipping enquiry with the following details:</p>
@@ -580,8 +631,9 @@ const enquiry = async (req, res) => {
     console.error("Error sending email:", err);
 
     // Handle specific error types if needed
-    if (err instanceof SomeSpecificErrorType) {
-      return res.status(400).send({ message: "Specific error message." });
+    if (err instanceof Error) {
+      // Handle the error
+      console.log("An error occurred:", err.message);
     }
 
     // Default to 500 for server errors
