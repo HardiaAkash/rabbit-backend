@@ -651,7 +651,7 @@ const enquiry = async (req, res) => {
     await transporter.sendMail(mailOptions);
 
     // Respond to the client
-    res.status(200).send({ message: "Enquiry sent successfully!" });
+    res.status(200).send({ message: "Thank you for your Enquiry. Our team will contact you soon." });
   } catch (err) {
     console.error("Error sending email:", err);
 
@@ -717,7 +717,7 @@ const contactUs = async (req, res) => {
     await transporter.sendMail(mailOptions);
 
     // Respond to the client
-    res.status(200).send({ message: "Enquiry sent successfully!" });
+    res.status(200).send({ message: "Thank you for your Enquiry. Our team will contact you soon." });
   } catch (err) {
     console.error("Error", err);
 
