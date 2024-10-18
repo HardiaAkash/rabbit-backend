@@ -487,14 +487,16 @@ const convertCurrency = async (req, res) => {
 
     // Validate input
     if (!baseCurrency || !convertCurrency || !amount) {
-      return res
-        .status(400)
-        .json({ error: "baseCurrency, convertCurrency, and amount are required." });
+      return res.status(400).json({
+        error: "baseCurrency, convertCurrency, and amount are required.",
+      });
     }
 
     // Check if amount is a valid number
     if (isNaN(amount) || amount <= 0) {
-      return res.status(400).json({ error: "Invalid amount. Please provide a valid number greater than 0." });
+      return res.status(400).json({
+        error: "Invalid amount. Please provide a valid number greater than 0.",
+      });
     }
 
     // Make the API call to fetch conversion rates
@@ -506,7 +508,9 @@ const convertCurrency = async (req, res) => {
 
     // Check if conversion data exists
     if (!data.data[convertCurrency]) {
-      return res.status(404).json({ error: `Conversion rate for ${convertCurrency} not found.` });
+      return res
+        .status(404)
+        .json({ error: `Conversion rate for ${convertCurrency} not found.` });
     }
 
     // Calculate the converted amount
@@ -519,18 +523,25 @@ const convertCurrency = async (req, res) => {
       baseAmount,
       message: `Conversion from ${baseCurrency} to ${convertCurrency} was successful.`,
     });
-
   } catch (err) {
     // Handle different error cases
     if (err.response && err.response.status === 401) {
-      return res.status(401).json({ error: "Invalid API key or unauthorized access." });
+      return res
+        .status(401)
+        .json({ error: "Invalid API key or unauthorized access." });
     } else if (err.response && err.response.status === 400) {
-      return res.status(400).json({ error: "Bad request to currency conversion API." });
-    } else if (err.code === 'ENOTFOUND') {
-      return res.status(503).json({ error: "Currency conversion service is currently unavailable." });
+      return res
+        .status(400)
+        .json({ error: "Bad request to currency conversion API." });
+    } else if (err.code === "ENOTFOUND") {
+      return res.status(503).json({
+        error: "Currency conversion service is currently unavailable.",
+      });
     } else {
       console.error(err); // Log the full error for debugging
-      return res.status(500).json({ error: "Internal Server Error: Failed to Convert Currency" });
+      return res
+        .status(500)
+        .json({ error: "Internal Server Error: Failed to Convert Currency" });
     }
   }
 };
@@ -540,14 +551,18 @@ const ShippingCalculate = async (req, res) => {
 
     // Validate input
     if (!weight || !country) {
-      return res.status(400).json({ error: "Weight and country are required." });
+      return res
+        .status(400)
+        .json({ error: "Weight and country are required." });
     }
 
     // Find the rate based on the closest weight
     const rate = findClosestWeight(weight);
 
     if (!rate) {
-      return res.status(404).json({ error: "No rates found for the given weight." });
+      return res
+        .status(404)
+        .json({ error: "No rates found for the given weight." });
     }
 
     const countryUpper = country.toUpperCase().replace(" ", "_");
@@ -555,7 +570,9 @@ const ShippingCalculate = async (req, res) => {
 
     // Validate rate for the country
     if (costPerKg === undefined) {
-      return res.status(400).json({ error: `No rates found for country: ${country}` });
+      return res
+        .status(400)
+        .json({ error: `No rates found for country: ${country}` });
     }
 
     let cost;
@@ -564,7 +581,9 @@ const ShippingCalculate = async (req, res) => {
     if (weight > 30) {
       const baseRate = shippingRates.find((r) => r.weight === "30-50");
       if (!baseRate) {
-        return res.status(404).json({ error: "No rates available for the 30-50kg range." });
+        return res
+          .status(404)
+          .json({ error: "No rates available for the 30-50kg range." });
       }
 
       const perKgRate = baseRate[countryUpper];
@@ -586,7 +605,6 @@ const ShippingCalculate = async (req, res) => {
   }
 };
 
-
 const enquiry = async (req, res) => {
   try {
     const {
@@ -599,7 +617,14 @@ const enquiry = async (req, res) => {
     } = req.body;
 
     // Input validation
-    if (!customerName || !originCountry || !weight || !destinationCountry || !phone || !email) {
+    if (
+      !customerName ||
+      !originCountry ||
+      !weight ||
+      !destinationCountry ||
+      !phone ||
+      !email
+    ) {
       return res.status(400).send({ message: "All fields are required." });
     }
 
@@ -637,7 +662,69 @@ const enquiry = async (req, res) => {
     }
 
     // Default to 500 for server errors
-    res.status(500).send({ message: "Error sending enquiry. Please try again later." });
+    res
+      .status(500)
+      .send({ message: "Error sending enquiry. Please try again later." });
+  }
+};
+const contactUs = async (req, res) => {
+  try {
+    const { fullName, contact, email, message } = req.body;
+    if (!fullName || !contact || !email || !message) {
+      return res.status(400).send({ message: "All fields are required." });
+    }
+
+    const mailOptions = {
+      from: "enquiry@rabbitspeed.in",
+      to: "enquiry@rabbitspeed.in",
+      subject: "New Contact Us Enquiry",
+      html: `
+        <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
+          <h2 style="color: #0056b3;">New Enquiry Received</h2>
+          <p>Dear Team,</p>
+          <p>You have received a new enquiry through the <strong>Contact Us</strong> form on your website. Please find the details below:</p>
+          
+          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+            <tr style="background-color: #f8f8f8;">
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Name:</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${fullName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Contact Number:</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${contact}</td>
+            </tr>
+            <tr style="background-color: #f8f8f8;">
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Email Address:</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${email}</td>
+            </tr>
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Message:</strong></td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${message}</td>
+            </tr>
+          </table>
+
+          <p style="margin-top: 20px;">Please reach out to the customer at your earliest convenience.</p>
+          
+          <p>Best Regards,<br/>Rabbitspeed Customer Support Team</p>
+
+          <hr style="margin-top: 30px;"/>
+          <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply directly to this email.</p>
+        </div>
+      `,
+    };
+
+    // Send the email
+    await transporter.sendMail(mailOptions);
+
+    // Respond to the client
+    res.status(200).send({ message: "Enquiry sent successfully!" });
+  } catch (err) {
+    console.error("Error", err);
+
+    // Default to 500 for server errors
+    res
+      .status(500)
+      .send({ message: "Error sending enquiry. Please try again later." });
   }
 };
 
@@ -645,4 +732,5 @@ module.exports = {
   convertCurrency,
   ShippingCalculate,
   enquiry,
+  contactUs
 };
