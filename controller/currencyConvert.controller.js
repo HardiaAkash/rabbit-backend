@@ -471,7 +471,23 @@ const transporter = nodemailer.createTransport({
     user: "enquiry@rabbitspeed.in", // Your GoDaddy email address
     pass: "Rabbitspeed123!", // Your GoDaddy email password
   },
+  tls: {
+    rejectUnauthorized: false, // Allow self-signed certificates
+  },
+  connectionTimeout: 10000, // 10 seconds
 });
+const sendEmailWithRetry = async (transporter, mailOptions, retries = 3) => {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    try {
+      await transporter.sendMail(mailOptions);
+      return;
+    } catch (error) {
+      if (attempt === retries - 1) throw error; // Only rethrow on the last attempt
+      console.warn(`Retrying email send: attempt ${attempt + 1}`);
+      console.error(error);
+    }
+  }
+};
 
 function findClosestWeight(weight) {
   return shippingRates.reduce((prev, curr) =>
@@ -648,10 +664,13 @@ const enquiry = async (req, res) => {
     };
 
     // Send the email
-    await transporter.sendMail(mailOptions);
+    await sendEmailWithRetry(transporter, mailOptions);
+    // await transporter.sendMail(mailOptions);
 
     // Respond to the client
-    res.status(200).send({ message: "Thank you for your Enquiry. Our team will contact you soon." });
+    res.status(200).send({
+      message: "Thank you for your Enquiry. Our team will contact you soon.",
+    });
   } catch (err) {
     console.error("Error sending email:", err);
 
@@ -682,31 +701,13 @@ const contactUs = async (req, res) => {
         <div style="font-family: Arial, sans-serif; color: #333; line-height: 1.6;">
           <h2 style="color: #0056b3;">New Enquiry Received</h2>
           <p>Dear Team,</p>
-          <p>You have received a new enquiry through the <strong>Contact Us</strong> form on your website. Please find the details below:</p>
-          
-          <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
-            <tr style="background-color: #f8f8f8;">
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Name:</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${fullName}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Contact Number:</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${contact}</td>
-            </tr>
-            <tr style="background-color: #f8f8f8;">
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Email Address:</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${email}</td>
-            </tr>
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;"><strong>Message:</strong></td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${message}</td>
-            </tr>
-          </table>
-
+          <p>You have received a new enquiry through the <strong>Contact Us</strong> form on your website:</p>
+          <p><strong>Name:</strong> ${fullName}</p>
+          <p><strong>Contact Number:</strong> ${contact}</p>
+          <p><strong>Email Address:</strong> ${email}</p>
+          <p><strong>Message:</strong> ${message}</p>
           <p style="margin-top: 20px;">Please reach out to the customer at your earliest convenience.</p>
-          
           <p>Best Regards,<br/>Rabbitspeed Customer Support Team</p>
-
           <hr style="margin-top: 30px;"/>
           <p style="font-size: 12px; color: #888;">This is an automated message. Please do not reply directly to this email.</p>
         </div>
@@ -714,12 +715,14 @@ const contactUs = async (req, res) => {
     };
 
     // Send the email
-    await transporter.sendMail(mailOptions);
-
+    // await transporter.sendMail(mailOptions);
+    await sendEmailWithRetry(transporter, mailOptions);
     // Respond to the client
-    res.status(200).send({ message: "Thank you for your Enquiry. Our team will contact you soon." });
+    res.status(200).send({
+      message: "Thank you for your Enquiry. Our team will contact you soon.",
+    });
   } catch (err) {
-    console.error("Error", err);
+    console.error("Error sending email:", err);
 
     // Default to 500 for server errors
     res
@@ -732,5 +735,5 @@ module.exports = {
   convertCurrency,
   ShippingCalculate,
   enquiry,
-  contactUs
+  contactUs,
 };
